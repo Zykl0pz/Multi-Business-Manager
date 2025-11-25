@@ -117,7 +117,7 @@ export default function IncomeManagement() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
-      currency: 'EUR'
+      currency: 'USD'
     }).format(amount)
   }
 

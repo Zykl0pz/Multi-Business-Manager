@@ -9,23 +9,23 @@ interface ExportRequest {
 
 function escapeCSVField(field: string): string {
   if (field == null) return ''
-  
+
   const stringField = String(field)
-  
+
   // If field contains comma, newline or quotes, wrap in quotes and escape internal quotes
   if (stringField.includes(',') || stringField.includes('\n') || stringField.includes('"')) {
     return '"' + stringField.replace(/"/g, '""') + '"'
   }
-  
+
   return stringField
 }
 
 function generateCSV(data: any[], headers: string[]): string {
   if (data.length === 0) return ''
-  
+
   // Header row
   const headerRow = headers.map(header => escapeCSVField(header)).join(',')
-  
+
   // Data rows
   const dataRows = data.map(row => {
     return headers.map(header => {
@@ -33,12 +33,82 @@ function generateCSV(data: any[], headers: string[]): string {
       return escapeCSVField(value)
     }).join(',')
   })
-  
-  return [headerRow, ...dataRows].join('\n')
+
+  return [ headerRow, ...dataRows ].join('\n')
 }
 
 function getNestedValue(obj: any, path: string): any {
-  return path.split('.').reduce((current, key) => current?.[key], obj)
+  return path.split('.').reduce((current, key) => current?.[ key ], obj)
+}
+
+function generateSectionWithMessage(sectionName: string, dataType: string): string {
+  const message = `El apartado de ${sectionName} no contiene información`
+  return escapeCSVField(message)
+}
+
+async function getAllData(businessId: string, selectedFields: string[]) {
+  // Obtener todos los datos en paralelo
+  const [ products, incomes, expenses ] = await Promise.all([
+    getProductsData(businessId, selectedFields),
+    getIncomesData(businessId, selectedFields),
+    getExpensesData(businessId, selectedFields)
+  ])
+
+  // Generar CSV para cada sección con separación visual y mensajes cuando no hay datos
+  const sections: string[] = []
+
+  // Sección de productos
+  if (products.length > 0) {
+    const productHeaders = selectedFields.filter(field => 
+      products[0] && Object.keys(products[0]).includes(field)
+    )
+    if (productHeaders.length > 0) {
+      sections.push(generateCSV(products, productHeaders))
+    } else if (products.length > 0) {
+      // Si hay productos pero no campos seleccionados válidos
+      sections.push(generateSectionWithMessage('productos', 'products'))
+    }
+  } else {
+    sections.push(generateSectionWithMessage('productos', 'products'))
+  }
+
+  // Fila en blanco antes de la siguiente sección (si hay secciones anteriores)
+  if (sections.length > 0) sections.push('')
+
+  // Sección de ingresos
+  if (incomes.length > 0) {
+    const incomeHeaders = selectedFields.filter(field => 
+      incomes[0] && Object.keys(incomes[0]).includes(field)
+    )
+    if (incomeHeaders.length > 0) {
+      sections.push(generateCSV(incomes, incomeHeaders))
+    } else if (incomes.length > 0) {
+      // Si hay ingresos pero no campos seleccionados válidos
+      sections.push(generateSectionWithMessage('ingresos', 'incomes'))
+    }
+  } else {
+    sections.push(generateSectionWithMessage('ingresos', 'incomes'))
+  }
+
+  // Fila en blanco antes de la siguiente sección (si hay secciones anteriores)
+  if (sections.length > 0) sections.push('')
+
+  // Sección de gastos
+  if (expenses.length > 0) {
+    const expenseHeaders = selectedFields.filter(field => 
+      expenses[0] && Object.keys(expenses[0]).includes(field)
+    )
+    if (expenseHeaders.length > 0) {
+      sections.push(generateCSV(expenses, expenseHeaders))
+    } else if (expenses.length > 0) {
+      // Si hay gastos pero no campos seleccionados válidos
+      sections.push(generateSectionWithMessage('gastos', 'expenses'))
+    }
+  } else {
+    sections.push(generateSectionWithMessage('gastos', 'expenses'))
+  }
+
+  return sections.join('\n')
 }
 
 async function getProductsData(businessId: string, selectedFields: string[]) {
@@ -104,6 +174,24 @@ async function getExpensesData(businessId: string, selectedFields: string[]) {
   }))
 }
 
+function generateIndividualCSVWithMessage(dataType: string): string {
+  let sectionName = ''
+  switch (dataType) {
+    case 'products':
+      sectionName = 'productos'
+      break
+    case 'incomes':
+      sectionName = 'ingresos'
+      break
+    case 'expenses':
+      sectionName = 'gastos'
+      break
+    default:
+      sectionName = 'datos'
+  }
+  return generateSectionWithMessage(sectionName, dataType)
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -120,21 +208,61 @@ export async function POST(
       )
     }
 
-    let data: any[] = []
+    let csv: string = ''
     let filename = ''
 
     switch (dataType) {
+      case 'all':
+        csv = await getAllData(id, selectedFields)
+        filename = `todos_los_datos_${new Date().toISOString().split('T')[ 0 ]}.csv`
+        break
       case 'products':
-        data = await getProductsData(id, selectedFields)
-        filename = `productos_${new Date().toISOString().split('T')[0]}.csv`
+        const productsData = await getProductsData(id, selectedFields)
+        if (productsData.length === 0) {
+          csv = generateIndividualCSVWithMessage('products')
+        } else {
+          const productHeaders = selectedFields.filter(field => 
+            Object.keys(productsData[0]).includes(field)
+          )
+          if (productHeaders.length === 0) {
+            csv = generateIndividualCSVWithMessage('products')
+          } else {
+            csv = generateCSV(productsData, productHeaders)
+          }
+        }
+        filename = `productos_${new Date().toISOString().split('T')[ 0 ]}.csv`
         break
       case 'incomes':
-        data = await getIncomesData(id, selectedFields)
-        filename = `ingresos_${new Date().toISOString().split('T')[0]}.csv`
+        const incomesData = await getIncomesData(id, selectedFields)
+        if (incomesData.length === 0) {
+          csv = generateIndividualCSVWithMessage('incomes')
+        } else {
+          const incomeHeaders = selectedFields.filter(field => 
+            Object.keys(incomesData[0]).includes(field)
+          )
+          if (incomeHeaders.length === 0) {
+            csv = generateIndividualCSVWithMessage('incomes')
+          } else {
+            csv = generateCSV(incomesData, incomeHeaders)
+          }
+        }
+        filename = `ingresos_${new Date().toISOString().split('T')[ 0 ]}.csv`
         break
       case 'expenses':
-        data = await getExpensesData(id, selectedFields)
-        filename = `gastos_${new Date().toISOString().split('T')[0]}.csv`
+        const expensesData = await getExpensesData(id, selectedFields)
+        if (expensesData.length === 0) {
+          csv = generateIndividualCSVWithMessage('expenses')
+        } else {
+          const expenseHeaders = selectedFields.filter(field => 
+            Object.keys(expensesData[0]).includes(field)
+          )
+          if (expenseHeaders.length === 0) {
+            csv = generateIndividualCSVWithMessage('expenses')
+          } else {
+            csv = generateCSV(expensesData, expenseHeaders)
+          }
+        }
+        filename = `gastos_${new Date().toISOString().split('T')[ 0 ]}.csv`
         break
       default:
         return NextResponse.json(
@@ -143,26 +271,12 @@ export async function POST(
         )
     }
 
-    if (data.length === 0) {
+    if (!csv || csv.trim() === '') {
       return NextResponse.json(
         { error: 'No hay datos para exportar' },
         { status: 404 }
       )
     }
-
-    // Filter data by selected fields
-    const filteredData = data.map(item => {
-      const filteredItem: any = {}
-      selectedFields.forEach(field => {
-        if (item.hasOwnProperty(field)) {
-          filteredItem[field] = item[field]
-        }
-      })
-      return filteredItem
-    })
-
-    // Generate CSV
-    const csv = generateCSV(filteredData, selectedFields)
 
     // Get business name for filename
     const business = await db.business.findUnique({
