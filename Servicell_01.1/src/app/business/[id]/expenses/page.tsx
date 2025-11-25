@@ -9,11 +9,11 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
-  TrendingDown, 
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  TrendingDown,
   Calendar,
   Search,
   Receipt
@@ -36,21 +36,21 @@ export default function ExpenseManagement() {
   const router = useRouter()
   const businessId = params.id as string
 
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [newExpense, setNewExpense] = useState({
+  const [ expenses, setExpenses ] = useState<Expense[]>([])
+  const [ loading, setLoading ] = useState(true)
+  const [ searchTerm, setSearchTerm ] = useState('')
+  const [ isAddDialogOpen, setIsAddDialogOpen ] = useState(false)
+  const [ newExpense, setNewExpense ] = useState({
     description: '',
     amount: '',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[ 0 ]
   })
 
   useEffect(() => {
     if (businessId) {
       fetchExpenses()
     }
-  }, [businessId])
+  }, [ businessId ])
 
   const fetchExpenses = async () => {
     try {
@@ -84,7 +84,7 @@ export default function ExpenseManagement() {
         setNewExpense({
           description: '',
           amount: '',
-          date: new Date().toISOString().split('T')[0]
+          date: new Date().toISOString().split('T')[ 0 ]
         })
         setIsAddDialogOpen(false)
         fetchExpenses()
@@ -138,9 +138,11 @@ export default function ExpenseManagement() {
   }
 
   return (
+
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
+
           <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => router.push(`/business/${businessId}`)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
